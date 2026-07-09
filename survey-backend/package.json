@@ -1,11 +1,14 @@
 {
   "name": "survey-backend",
   "version": "1.0.0",
-  "description": "แบบสอบถามความพึงพอใจ + ระบบหลังบ้านดูผู้กรอก (Node.js, zero dependencies)",
+  "description": "แบบสอบถามความพึงพอใจ + ระบบหลังบ้านดูผู้กรอก (PostgreSQL หรือไฟล์ JSON)",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
   },
   "engines": {
     "node": ">=20"

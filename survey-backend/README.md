@@ -43,8 +43,23 @@
 
 ## ข้อมูลถูกเก็บที่ไหน
 
-คำตอบทั้งหมดถูกเก็บในไฟล์ `data/responses.json`
-สำรองข้อมูลได้ง่าย ๆ ด้วยการคัดลอกไฟล์นี้เก็บไว้
+ระบบเลือกที่เก็บข้อมูลอัตโนมัติจาก environment variable `DATABASE_URL`:
+
+- **มี `DATABASE_URL`** → เก็บใน **PostgreSQL** (ตาราง `responses` สร้างให้อัตโนมัติ, เบอร์โทรตั้ง UNIQUE กันซ้ำ)
+- **ไม่มี `DATABASE_URL`** → เก็บในไฟล์ `data/responses.json` (สำหรับรันในเครื่อง) สำรองได้ด้วยการคัดลอกไฟล์
+
+## Deploy บน Railway (พร้อม PostgreSQL)
+
+1. สร้าง project และเพิ่ม service จาก GitHub repo นี้
+2. กด **+ New** → **Database** → **Add PostgreSQL** ในโปรเจกต์เดียวกัน
+3. ที่ service ของแอป → แท็บ **Variables** → เพิ่มตัวแปร:
+   - `DATABASE_URL` = `${{ Postgres.DATABASE_URL }}`  (อ้างอิงจาก service Postgres)
+   - `ADMIN_USER` = ชื่อผู้ใช้ Admin
+   - `ADMIN_PASS` = รหัสผ่าน Admin (อย่าใช้ค่า default)
+   - (ถ้าต่อ Postgres ผ่าน public URL ให้เพิ่ม `PGSSL` = `require`)
+4. Railway จะ build และ deploy ให้เอง ข้อมูลจะไม่หายเมื่อ redeploy อีกต่อไป
+
+> โหมดไฟล์ JSON บน Railway ข้อมูลจะหายทุกครั้งที่ deploy — จึงควรใช้ PostgreSQL เสมอบน production
 
 ## ให้คนอื่นในวงเน็ตเดียวกันกรอกได้
 

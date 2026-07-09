@@ -1,12 +1,12 @@
-// ระบบหลังบ้านแบบสอบถามความพึงพอใจ — Node.js ล้วน ไม่ต้องติดตั้งแพ็กเกจเพิ่ม
-// เก็บคำตอบไว้ใน data/responses.json และมีหน้า Admin (ต้องล็อกอิน) เพื่อดูผู้กรอก
+// ระบบหลังบ้านแบบสอบถามความพึงพอใจ
+// เก็บข้อมูลใน PostgreSQL (เมื่อมี DATABASE_URL) หรือไฟล์ JSON (เมื่อไม่มี)
+// มีหน้า Admin (ต้องล็อกอิน) เพื่อดูผู้กรอก
 
 import http from 'node:http';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { createStore } from './storage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -16,42 +16,11 @@ const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'changeme123'; // << เปลี่ยนรหัสผ่านนี้ก่อนใช้งานจริง
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const DATA_DIR = path.join(__dirname, 'data');
-const DATA_FILE = path.join(DATA_DIR, 'responses.json');
+// โฟลเดอร์เก็บไฟล์ (ใช้เฉพาะโหมดไฟล์) — ตั้งผ่าน DATA_DIR ได้ เช่นชี้ไป Railway Volume
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 
 // ---------- เตรียมที่เก็บข้อมูล ----------
-fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]', 'utf8');
-
-async function readResponses() {
-  try {
-    const raw = await fsp.readFile(DATA_FILE, 'utf8');
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
-// เขียนแบบทีละคิว กันไฟล์พัง + กันเบอร์ซ้ำเวลามีคนส่งพร้อมกัน
-let writeQueue = Promise.resolve();
-function saveResponseUnique(item) {
-  const task = writeQueue.then(async () => {
-    const all = await readResponses();
-    // เบอร์โทรต้องไม่ซ้ำกับที่เคยกรอกไว้
-    if (all.some((r) => r.phone === item.phone)) {
-      return { ok: false, duplicate: true };
-    }
-    all.push(item);
-    const tmp = DATA_FILE + '.tmp';
-    await fsp.writeFile(tmp, JSON.stringify(all, null, 2), 'utf8');
-    await fsp.rename(tmp, DATA_FILE);
-    return { ok: true };
-  });
-  // ให้คิวเดินต่อได้เสมอ แม้ครั้งนี้จะ error
-  writeQueue = task.then(() => {}, () => {});
-  return task;
-}
+const store = await createStore({ dataDir: DATA_DIR });
 
 // ---------- helper ----------
 function send(res, status, body, headers = {}) {
@@ -214,7 +183,7 @@ const server = http.createServer(async (req, res) => {
         submittedAt: new Date().toISOString(),
         ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim(),
       };
-      const saved = await saveResponseUnique(item);
+      const saved = await store.insert(item);
       if (!saved.ok && saved.duplicate) {
         return sendJson(res, 409, {
           ok: false,
@@ -228,8 +197,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && p === '/api/check-phone') {
       const phone = (url.searchParams.get('phone') || '').replace(/\D/g, '');
       if (!/^0\d{9}$/.test(phone)) return sendJson(res, 200, { ok: true, valid: false, exists: false });
-      const all = await readResponses();
-      return sendJson(res, 200, { ok: true, valid: true, exists: all.some((r) => r.phone === phone) });
+      return sendJson(res, 200, { ok: true, valid: true, exists: await store.phoneExists(phone) });
     }
 
     // --- พื้นที่ Admin (ต้องล็อกอินทั้งหมด) ---
@@ -239,14 +207,12 @@ const server = http.createServer(async (req, res) => {
       if (p === '/admin') return serveStatic(res, 'admin.html');
 
       if (p === '/api/responses') {
-        const all = await readResponses();
-        all.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+        const all = await store.all(); // เรียงใหม่สุดก่อนอยู่แล้ว
         return sendJson(res, 200, { ok: true, count: all.length, responses: all });
       }
 
       if (p === '/api/export.csv') {
-        const all = await readResponses();
-        all.sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+        const all = (await store.all()).slice().reverse(); // CSV เรียงเก่า -> ใหม่
         return send(res, 200, toCsv(all), {
           'Content-Type': 'text/csv; charset=utf-8',
           'Content-Disposition': 'attachment; filename="survey_responses.csv"',
@@ -274,6 +240,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('  ✅ ระบบแบบสอบถามพร้อมใช้งานแล้ว');
+  console.log(`  💾 เก็บข้อมูลแบบ: ${store.kind === 'postgres' ? 'PostgreSQL' : 'ไฟล์ JSON (data/responses.json)'}`);
   console.log('  ─────────────────────────────────────────');
   console.log(`  📝 หน้ากรอกแบบสอบถาม : http://localhost:${PORT}/`);
   console.log(`  🔐 หน้า Admin (ดูผู้กรอก): http://localhost:${PORT}/admin`);
