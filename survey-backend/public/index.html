@@ -98,6 +98,11 @@
   .formError { color: var(--danger); font-size: 14px; text-align: center; display: none; }
   .formError.show { display: block; }
   .foot { text-align: center; font-size: 12.5px; color: var(--ink-faint); margin-top: 8px; }
+  .fieldlabel { font-weight: 600; font-size: 15px; }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
   .photo-btn {
     font: inherit; font-weight: 600; font-size: 14px; color: var(--accent);
     background: var(--field); border: 1.5px dashed var(--line); border-radius: 10px;
@@ -190,12 +195,12 @@
       </div>
 
       <div class="field" id="f-photo">
-        <label for="photo">แนบรูปถ่าย <span class="hint" style="font-weight:400">(ไม่บังคับ)</span></label>
-        <input type="file" id="photo" accept="image/*" capture="environment" hidden />
-        <button type="button" class="photo-btn" id="photoBtn">
+        <span class="fieldlabel">แนบรูปถ่าย <span class="hint" style="font-weight:400">(ไม่บังคับ)</span></span>
+        <input type="file" id="photo" accept="image/*" class="visually-hidden" />
+        <label class="photo-btn" id="photoBtn" for="photo">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
           เลือกรูป หรือ ถ่ายรูป
-        </button>
+        </label>
         <div class="photo-preview" id="photoPreview" hidden>
           <img id="previewImg" alt="ตัวอย่างรูปที่แนบ" />
           <button type="button" class="photo-remove" id="removePhoto">✕ ลบรูป</button>
@@ -277,7 +282,6 @@
   var photoError = document.getElementById('photoError');
   var photoDataUrl = '';
 
-  photoBtn.addEventListener('click', function () { photoInput.click(); });
   document.getElementById('removePhoto').addEventListener('click', clearPhoto);
   function clearPhoto() {
     photoDataUrl = ''; photoInput.value = '';
@@ -294,7 +298,6 @@
       document.getElementById('f-photo').classList.add('invalid');
       return;
     }
-    photoBtn.disabled = true;
     try {
       photoDataUrl = await compressImage(file, 1024, 0.8);
       previewImg.src = photoDataUrl;
@@ -303,8 +306,6 @@
     } catch (e) {
       photoError.textContent = 'อ่านรูปไม่สำเร็จ ลองรูปอื่น';
       document.getElementById('f-photo').classList.add('invalid');
-    } finally {
-      photoBtn.disabled = false;
     }
   });
 
