@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>เข้าสู่ระบบผู้ดูแล · แบบสอบถามความพึงพอใจ</title>
+<style>
+  :root {
+    --bg: #eaf0ee; --card: #ffffff; --ink: #16211f; --ink-soft: #55635f;
+    --ink-faint: #8b9793; --line: #dce2df; --field: #f5f8f7; --field-focus: #ffffff;
+    --accent: #0d8b7f; --accent-2: #12b39f; --accent-ink: #ffffff; --accent-soft: #e2f2ef;
+    --danger: #d5453b; --danger-soft: #fceceb;
+    --shadow: 0 1px 2px rgba(22,33,31,.05), 0 30px 70px -30px rgba(13,139,127,.35);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a1210; --card: #16201d; --ink: #eef3f1; --ink-soft: #a5b2ae;
+      --ink-faint: #6f7d78; --line: #2a3733; --field: #0f1815; --field-focus: #131d1a;
+      --accent: #2bb3a3; --accent-2: #37d2bd; --accent-ink: #04120f; --accent-soft: #12302b;
+      --danger: #ff6b60; --danger-soft: #2a1512;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 40px 90px -40px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eaf0ee; --card: #ffffff; --ink: #16211f; --ink-soft: #55635f;
+    --ink-faint: #8b9793; --line: #dce2df; --field: #f5f8f7; --field-focus: #ffffff;
+    --accent: #0d8b7f; --accent-2: #12b39f; --accent-ink: #ffffff; --accent-soft: #e2f2ef;
+    --danger: #d5453b; --danger-soft: #fceceb;
+    --shadow: 0 1px 2px rgba(22,33,31,.05), 0 30px 70px -30px rgba(13,139,127,.35);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0a1210; --card: #16201d; --ink: #eef3f1; --ink-soft: #a5b2ae;
+    --ink-faint: #6f7d78; --line: #2a3733; --field: #0f1815; --field-focus: #131d1a;
+    --accent: #2bb3a3; --accent-2: #37d2bd; --accent-ink: #04120f; --accent-soft: #12302b;
+    --danger: #ff6b60; --danger-soft: #2a1512;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 40px 90px -40px rgba(0,0,0,.8);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; color: var(--ink);
+    font-family: "Segoe UI", "Leelawadee UI", "Noto Sans Thai", system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(1100px 700px at 12% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
+      radial-gradient(900px 600px at 110% 110%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 55%),
+      var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: 100%; max-width: 400px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow);
+    padding: clamp(28px, 6vw, 40px); position: relative; overflow: hidden;
+    animation: rise .5s cubic-bezier(.2,.8,.25,1) both;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  .brand { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; margin-bottom: 26px; }
+  .logo {
+    width: 60px; height: 60px; border-radius: 16px; display: grid; place-items: center;
+    background: linear-gradient(140deg, var(--accent), var(--accent-2)); color: var(--accent-ink);
+    box-shadow: 0 10px 26px -10px color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+  .logo svg { width: 30px; height: 30px; }
+  h1 { margin: 0; font-size: 21px; letter-spacing: -.01em; }
+  .brand p { margin: 0; color: var(--ink-soft); font-size: 13.5px; }
+
+  form { display: flex; flex-direction: column; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 7px; }
+  label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .inputwrap { position: relative; display: flex; align-items: center; }
+  .inputwrap .lead {
+    position: absolute; left: 14px; color: var(--ink-faint); display: flex; pointer-events: none;
+  }
+  .inputwrap .lead svg { width: 18px; height: 18px; }
+  input {
+    font: inherit; width: 100%; color: var(--ink); background: var(--field);
+    border: 1.5px solid var(--line); border-radius: 12px;
+    padding: 13px 14px 13px 42px; transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  input::placeholder { color: var(--ink-faint); }
+  input:focus {
+    outline: none; border-color: var(--accent); background: var(--field-focus);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .toggle {
+    position: absolute; right: 8px; background: none; border: 0; cursor: pointer;
+    color: var(--ink-faint); padding: 8px; border-radius: 8px; display: flex; line-height: 0;
+  }
+  .toggle:hover { color: var(--accent); }
+  .toggle svg { width: 18px; height: 18px; }
+
+  .error {
+    display: none; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600;
+    color: var(--danger); background: var(--danger-soft);
+    border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+    padding: 10px 12px; border-radius: 10px;
+  }
+  .error.show { display: flex; }
+  .error svg { width: 16px; height: 16px; flex: none; }
+
+  button.submit {
+    font: inherit; font-weight: 700; font-size: 15.5px; margin-top: 4px;
+    color: var(--accent-ink); background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: 0; border-radius: 12px; padding: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 12px 26px -12px color-mix(in srgb, var(--accent) 75%, transparent);
+    transition: filter .15s, transform .05s;
+  }
+  button.submit:hover { filter: brightness(1.07); }
+  button.submit:active { transform: translateY(1px); }
+  button.submit:disabled { opacity: .7; cursor: progress; }
+  .spinner { width: 17px; height: 17px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+  button.submit.loading .spinner { display: inline-block; }
+  button.submit.loading .label { opacity: .85; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .back { margin-top: 22px; text-align: center; }
+  .back a { color: var(--ink-faint); font-size: 13px; text-decoration: none; font-weight: 600; }
+  .back a:hover { color: var(--accent); }
+
+  .shake { animation: shake .4s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-7px)} 40%,80%{transform:translateX(7px)} }
+  @media (prefers-reduced-motion: reduce) { *, .card { animation: none !important; } }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="11" width="16" height="10" rx="2"></rect>
+          <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+          <circle cx="12" cy="16" r="1.4" fill="currentColor" stroke="none"></circle>
+        </svg>
+      </div>
+      <div>
+        <h1>เข้าสู่ระบบผู้ดูแล</h1>
+        <p>ระบบแบบสอบถามความพึงพอใจ</p>
+      </div>
+    </div>
+
+    <form id="loginForm" novalidate>
+      <div class="error" id="error" role="alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16.5v.01"></path></svg>
+        <span id="errorText">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</span>
+      </div>
+
+      <div class="field">
+        <label for="username">ชื่อผู้ใช้</label>
+        <div class="inputwrap">
+          <span class="lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg></span>
+          <input type="text" id="username" name="username" placeholder="ชื่อผู้ใช้" autocomplete="username" autofocus />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">รหัสผ่าน</label>
+        <div class="inputwrap">
+          <span class="lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></span>
+          <input type="password" id="password" name="password" placeholder="รหัสผ่าน" autocomplete="current-password" />
+          <button type="button" class="toggle" id="toggle" aria-label="แสดง/ซ่อนรหัสผ่าน">
+            <svg id="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="submit" id="submitBtn">
+        <span class="spinner"></span>
+        <span class="label">เข้าสู่ระบบ</span>
+      </button>
+    </form>
+
+    <div class="back"><a href="/">← กลับไปหน้าแบบสอบถาม</a></div>
+  </div>
+
+<script>
+  var form = document.getElementById('loginForm');
+  var btn = document.getElementById('submitBtn');
+  var errBox = document.getElementById('error');
+  var errText = document.getElementById('errorText');
+  var card = document.getElementById('card');
+  var pw = document.getElementById('password');
+
+  // แสดง/ซ่อนรหัสผ่าน
+  document.getElementById('toggle').addEventListener('click', function () {
+    var showing = pw.type === 'text';
+    pw.type = showing ? 'password' : 'text';
+    document.getElementById('eye').style.opacity = showing ? '1' : '.55';
+    pw.focus();
+  });
+
+  function showError(msg) {
+    errText.textContent = msg;
+    errBox.classList.add('show');
+    card.classList.remove('shake');
+    void card.offsetWidth; // reflow เพื่อเล่นอนิเมชันซ้ำ
+    card.classList.add('shake');
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    errBox.classList.remove('show');
+    var username = document.getElementById('username').value.trim();
+    var password = pw.value;
+    if (!username || !password) { showError('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'); return; }
+
+    btn.classList.add('loading'); btn.disabled = true;
+    try {
+      var resp = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, password: password })
+      });
+      if (resp.ok) {
+        window.location.href = '/admin';
+        return;
+      }
+      var data = await resp.json().catch(function () { return {}; });
+      showError(data.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      pw.select();
+    } catch (err) {
+      showError('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่');
+    } finally {
+      btn.classList.remove('loading'); btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

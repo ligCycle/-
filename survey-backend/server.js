@@ -28,8 +28,8 @@ function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'Cache-Control': 'no-store', ...headers });
   res.end(body);
 }
-function sendJson(res, status, obj) {
-  send(res, status, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8' });
+function sendJson(res, status, obj, headers = {}) {
+  send(res, status, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8', ...headers });
 }
 
 const MIME = {
@@ -54,33 +54,62 @@ async function serveStatic(res, relPath) {
   }
 }
 
-// ---------- ตรวจสอบสิทธิ์ Admin (HTTP Basic Auth) ----------
+// ---------- ตรวจสอบสิทธิ์ Admin (cookie session) ----------
+// secret สำหรับเซ็น session — คงที่ข้าม restart และเปลี่ยนเมื่อเปลี่ยนรหัสผ่าน
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  crypto.createHash('sha256').update(`${ADMIN_USER}:${ADMIN_PASS}:survey-session-v1`).digest('hex');
+const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // จำ login ไว้ 7 วัน
+
 function timingSafeEqual(a, b) {
-  const ba = Buffer.from(a);
-  const bb = Buffer.from(b);
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
   if (ba.length !== bb.length) return false;
   return crypto.timingSafeEqual(ba, bb);
 }
-function isAuthed(req) {
-  const header = req.headers.authorization || '';
-  if (!header.startsWith('Basic ')) return false;
-  let decoded;
-  try {
-    decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
-  } catch {
-    return false;
-  }
-  const idx = decoded.indexOf(':');
-  if (idx < 0) return false;
-  const user = decoded.slice(0, idx);
-  const pass = decoded.slice(idx + 1);
-  return timingSafeEqual(user, ADMIN_USER) && timingSafeEqual(pass, ADMIN_PASS);
+
+function checkCredentials(user, pass) {
+  return timingSafeEqual(user ?? '', ADMIN_USER) && timingSafeEqual(pass ?? '', ADMIN_PASS);
 }
-function requireAuth(res) {
-  send(res, 401, 'ต้องเข้าสู่ระบบ', {
-    'WWW-Authenticate': 'Basic realm="Survey Admin", charset="UTF-8"',
-    'Content-Type': 'text/plain; charset=utf-8',
-  });
+
+function signSession() {
+  const value = `admin:${Date.now()}`;
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(value).digest('base64url');
+  return `${value}.${sig}`;
+}
+
+function verifySession(token) {
+  if (!token) return false;
+  const idx = token.lastIndexOf('.');
+  if (idx < 0) return false;
+  const value = token.slice(0, idx);
+  const sig = token.slice(idx + 1);
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(value).digest('base64url');
+  if (!timingSafeEqual(sig, expected)) return false;
+  const ts = parseInt(value.split(':')[1], 10);
+  return Boolean(ts) && Date.now() - ts < SESSION_MAX_AGE;
+}
+
+function parseCookies(req) {
+  const out = {};
+  const raw = req.headers.cookie;
+  if (!raw) return out;
+  for (const part of raw.split(';')) {
+    const i = part.indexOf('=');
+    if (i < 0) continue;
+    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return out;
+}
+
+function isAuthed(req) {
+  return verifySession(parseCookies(req).sid);
+}
+
+function sessionCookie(req, { clear = false } = {}) {
+  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  if (clear) return `sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`;
+  return `sid=${signSession()}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${Math.floor(SESSION_MAX_AGE / 1000)}${secure}`;
 }
 
 // ---------- ตรวจสอบข้อมูลฝั่งเซิร์ฟเวอร์ ----------
@@ -201,9 +230,29 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true, valid: true, exists: await store.phoneExists(phone) });
     }
 
+    // --- เข้าสู่ระบบ / ออกจากระบบ ---
+    if (req.method === 'POST' && p === '/api/login') {
+      let body;
+      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+      if (checkCredentials(body.username, body.password)) {
+        return sendJson(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req) });
+      }
+      return sendJson(res, 401, { ok: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    }
+    if (req.method === 'POST' && p === '/api/logout') {
+      return sendJson(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req, { clear: true }) });
+    }
+    if (req.method === 'GET' && p === '/login') {
+      if (isAuthed(req)) return send(res, 302, '', { Location: '/admin' });
+      return serveStatic(res, 'login.html');
+    }
+
     // --- พื้นที่ Admin (ต้องล็อกอินทั้งหมด) ---
     if (p === '/admin' || p.startsWith('/api/responses') || p.startsWith('/api/export')) {
-      if (!isAuthed(req)) return requireAuth(res);
+      if (!isAuthed(req)) {
+        if (p === '/admin') return send(res, 302, '', { Location: '/login' });
+        return sendJson(res, 401, { ok: false, message: 'ต้องเข้าสู่ระบบ' });
+      }
 
       if (p === '/admin') return serveStatic(res, 'admin.html');
 

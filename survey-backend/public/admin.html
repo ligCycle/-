@@ -107,6 +107,7 @@
       <a class="btn" href="/">📝 หน้าแบบสอบถาม</a>
       <button class="btn" id="refresh">↻ รีเฟรช</button>
       <a class="btn primary" href="/api/export.csv" download>⬇️ ดาวน์โหลด CSV</a>
+      <button class="btn" id="logout">ออกจากระบบ</button>
     </div>
   </header>
 
@@ -218,6 +219,7 @@
   async function load() {
     try {
       var resp = await fetch('/api/responses', { headers: { 'Accept': 'application/json' } });
+      if (resp.status === 401) { window.location.href = '/login'; return; }
       if (!resp.ok) throw new Error('auth');
       var data = await resp.json();
       all = data.responses || [];
@@ -232,6 +234,10 @@
 
   document.getElementById('refresh').addEventListener('click', load);
   document.getElementById('search').addEventListener('input', renderRows);
+  document.getElementById('logout').addEventListener('click', async function () {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+    window.location.href = '/login';
+  });
   load();
 </script>
 </body>
