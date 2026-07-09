@@ -1,0 +1,13 @@
+{
+  "name": "survey-backend",
+  "version": "1.0.0",
+  "description": "แบบสอบถามความพึงพอใจ + ระบบหลังบ้านดูผู้กรอก (Node.js, zero dependencies)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>แบบสอบถามความพึงพอใจ</title>
+<style>
+  :root {
+    --bg: #eef1ef; --card: #ffffff; --ink: #16211f; --ink-soft: #55635f;
+    --ink-faint: #8b9793; --line: #dce2df; --field: #f7f9f8; --field-focus: #ffffff;
+    --accent: #0d8b7f; --accent-ink: #ffffff; --accent-soft: #e2f2ef;
+    --star: #f59e0b; --star-empty: #d3d9d6; --danger: #d5453b;
+    --shadow: 0 1px 2px rgba(22,33,31,.04), 0 12px 40px -18px rgba(22,33,31,.28);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1513; --card: #16201d; --ink: #eef3f1; --ink-soft: #a5b2ae;
+      --ink-faint: #6f7d78; --line: #2a3733; --field: #101815; --field-focus: #131d1a;
+      --accent: #2bb3a3; --accent-ink: #04120f; --accent-soft: #12302b;
+      --star: #f5b433; --star-empty: #3a4642; --danger: #ff6b60;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 18px 50px -20px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1ef; --card: #ffffff; --ink: #16211f; --ink-soft: #55635f;
+    --ink-faint: #8b9793; --line: #dce2df; --field: #f7f9f8; --field-focus: #ffffff;
+    --accent: #0d8b7f; --accent-ink: #ffffff; --accent-soft: #e2f2ef;
+    --star: #f59e0b; --star-empty: #d3d9d6; --danger: #d5453b;
+    --shadow: 0 1px 2px rgba(22,33,31,.04), 0 12px 40px -18px rgba(22,33,31,.28);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1513; --card: #16201d; --ink: #eef3f1; --ink-soft: #a5b2ae;
+    --ink-faint: #6f7d78; --line: #2a3733; --field: #101815; --field-focus: #131d1a;
+    --accent: #2bb3a3; --accent-ink: #04120f; --accent-soft: #12302b;
+    --star: #f5b433; --star-empty: #3a4642; --danger: #ff6b60;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 18px 50px -20px rgba(0,0,0,.6);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", "Leelawadee UI", "Noto Sans Thai", system-ui, -apple-system, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+    padding: clamp(16px, 4vw, 48px) 16px; display: flex; justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .head {
+    padding: clamp(24px, 5vw, 38px) clamp(22px, 5vw, 40px) clamp(20px, 4vw, 30px);
+    border-bottom: 1px solid var(--line);
+    background: radial-gradient(120% 140% at 100% 0%, var(--accent-soft) 0%, transparent 55%);
+  }
+  .eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin: 0 0 10px; }
+  h1 { font-size: clamp(22px, 5vw, 28px); line-height: 1.2; margin: 0 0 8px; letter-spacing: -.01em; text-wrap: balance; }
+  .sub { margin: 0; color: var(--ink-soft); font-size: 15px; }
+  form { padding: clamp(22px, 5vw, 36px) clamp(22px, 5vw, 40px); display: flex; flex-direction: column; gap: 26px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  label { font-weight: 600; font-size: 15px; }
+  .req { color: var(--accent); font-weight: 700; }
+  .hint { font-size: 13px; color: var(--ink-faint); }
+  input[type="text"], input[type="email"], input[type="tel"], input[type="date"], textarea {
+    font: inherit; color: var(--ink); background: var(--field);
+    border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  input[type="date"] { color-scheme: light dark; }
+  textarea { resize: vertical; min-height: 92px; }
+  input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+  input:focus, textarea:focus {
+    outline: none; border-color: var(--accent); background: var(--field-focus);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .field.invalid input, .field.invalid textarea { border-color: var(--danger); }
+  .error { color: var(--danger); font-size: 13px; display: none; }
+  .field.invalid .error { display: block; }
+  .status { font-size: 13px; font-weight: 600; display: none; align-items: center; gap: 5px; }
+  .status.ok { display: flex; color: var(--accent); }
+  .status.checking { display: flex; color: var(--ink-faint); font-weight: 500; }
+  .field.invalid .status { display: none; }
+  fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  legend { font-weight: 600; font-size: 15px; padding: 0; }
+  .stars { display: flex; gap: 6px; direction: ltr; }
+  .stars input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .stars label { cursor: pointer; line-height: 0; color: var(--star-empty); transition: transform .12s, color .12s; padding: 4px; border-radius: 8px; }
+  .stars label svg { width: 38px; height: 38px; display: block; }
+  .stars label:hover { transform: scale(1.12); }
+  .stars input:focus-visible + label { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .rate-caption { font-size: 14px; color: var(--ink-soft); min-height: 20px; font-weight: 600; }
+  button {
+    font: inherit; font-weight: 700; font-size: 16px; color: var(--accent-ink);
+    background: var(--accent); border: 0; border-radius: 11px; padding: 14px 20px;
+    cursor: pointer; transition: filter .15s, transform .05s;
+  }
+  button:hover { filter: brightness(1.06); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .6; cursor: progress; }
+  button:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  .formError { color: var(--danger); font-size: 14px; text-align: center; display: none; }
+  .formError.show { display: block; }
+  .foot { text-align: center; font-size: 12.5px; color: var(--ink-faint); margin-top: 8px; }
+  .thanks { padding: clamp(36px, 8vw, 64px) clamp(24px, 6vw, 44px); text-align: center; display: none; flex-direction: column; align-items: center; gap: 14px; }
+  .thanks.show { display: flex; }
+  form.hide { display: none; }
+  .check { width: 72px; height: 72px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; animation: pop .4s cubic-bezier(.2,.8,.3,1.4); }
+  .check svg { width: 38px; height: 38px; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .thanks h2 { margin: 0; font-size: 24px; }
+  .thanks p { margin: 0; color: var(--ink-soft); max-width: 34ch; }
+  .again { margin-top: 8px; background: transparent; color: var(--accent); border: 1.5px solid var(--line); padding: 10px 18px; font-size: 14px; }
+  .nav { margin-top: 18px; text-align: center; }
+  .nav a {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none;
+    padding: 8px 16px; border: 1.5px solid var(--line); border-radius: 999px;
+    background: var(--card); transition: color .15s, border-color .15s;
+  }
+  .nav a:hover { color: var(--accent); border-color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { .check { animation: none; } * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="head">
+      <p class="eyebrow">แบบสอบถาม</p>
+      <h1>บอกเราหน่อยว่าเราทำได้ดีแค่ไหน</h1>
+      <p class="sub">ความคิดเห็นของคุณช่วยให้เราพัฒนาบริการให้ดียิ่งขึ้น ใช้เวลาไม่ถึง 1 นาที</p>
+    </div>
+
+    <form id="survey" novalidate>
+      <div class="field" id="f-name">
+        <label for="name">ชื่อ-นามสกุล <span class="req">*</span></label>
+        <input type="text" id="name" name="name" placeholder="เช่น สมชาย ใจดี" autocomplete="name" />
+        <span class="error">กรุณากรอกชื่อ-นามสกุล</span>
+      </div>
+
+      <div class="field" id="f-email">
+        <label for="email">อีเมล (Gmail) <span class="req">*</span></label>
+        <input type="email" id="email" name="email" placeholder="yourname@gmail.com" autocomplete="email" inputmode="email" />
+        <span class="hint">ใช้อีเมล Gmail ที่ลงท้ายด้วย @gmail.com</span>
+        <span class="error">กรุณากรอกอีเมล Gmail ที่ถูกต้อง (ลงท้ายด้วย @gmail.com)</span>
+      </div>
+
+      <div class="field" id="f-phone">
+        <label for="phone">เบอร์โทรศัพท์ <span class="req">*</span></label>
+        <input type="tel" id="phone" name="phone" placeholder="08X-XXX-XXXX" autocomplete="tel" inputmode="numeric" maxlength="12" />
+        <span class="hint">เบอร์มือถือ 10 หลัก</span>
+        <span class="status" id="phoneStatus"></span>
+        <span class="error" id="phoneError">กรุณากรอกเบอร์โทร 10 หลักให้ถูกต้อง</span>
+      </div>
+
+      <div class="field" id="f-birthdate">
+        <label for="birthdate">วันเกิด <span class="req">*</span></label>
+        <input type="date" id="birthdate" name="birthdate" autocomplete="bday" />
+        <span class="error">กรุณาเลือกวันเกิดที่ถูกต้อง</span>
+      </div>
+
+      <fieldset id="f-rating">
+        <legend>ความพึงพอใจโดยรวม <span class="req">*</span></legend>
+        <div class="stars" role="radiogroup" aria-label="ให้คะแนนความพึงพอใจ 1 ถึง 5 ดาว">
+          <input type="radio" name="rating" id="s1" value="1" /><label for="s1" title="1 - แย่มาก" aria-label="1 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+          <input type="radio" name="rating" id="s2" value="2" /><label for="s2" title="2 - พอใช้" aria-label="2 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+          <input type="radio" name="rating" id="s3" value="3" /><label for="s3" title="3 - ปานกลาง" aria-label="3 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+          <input type="radio" name="rating" id="s4" value="4" /><label for="s4" title="4 - ดี" aria-label="4 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+          <input type="radio" name="rating" id="s5" value="5" /><label for="s5" title="5 - ดีมาก" aria-label="5 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+        </div>
+        <div class="rate-caption" id="rateCaption" aria-live="polite">แตะที่ดาวเพื่อให้คะแนน</div>
+        <span class="error" id="rateError" style="display:none">กรุณาให้คะแนนความพึงพอใจ</span>
+      </fieldset>
+
+      <div class="field">
+        <label for="comment">ข้อเสนอแนะเพิ่มเติม <span class="hint" style="font-weight:400">(ไม่บังคับ)</span></label>
+        <textarea id="comment" name="comment" placeholder="สิ่งที่คุณประทับใจ หรืออยากให้เราปรับปรุง..." maxlength="2000"></textarea>
+      </div>
+
+      <button type="submit" id="submitBtn">ส่งแบบสอบถาม</button>
+      <p class="formError" id="formError">ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</p>
+      <p class="foot">ข้อมูลของคุณจะถูกเก็บเป็นความลับ และใช้เพื่อพัฒนาบริการเท่านั้น</p>
+    </form>
+
+    <div class="thanks" id="thanks">
+      <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h2>ขอบคุณมากครับ/ค่ะ 🙏</h2>
+      <p id="thanksMsg">เราได้รับความคิดเห็นของคุณเรียบร้อยแล้ว</p>
+      <button type="button" class="again" id="again">ส่งอีกครั้ง</button>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <a href="/admin">🔐 เข้าหน้าผู้ดูแลระบบ (Admin)</a>
+  </nav>
+</div>
+
+<script>
+  var form = document.getElementById('survey');
+  var submitBtn = document.getElementById('submitBtn');
+  var formError = document.getElementById('formError');
+  var captions = {
+    '1': '😞 แย่มาก — ขออภัยที่ทำให้ผิดหวัง',
+    '2': '😕 พอใช้ — เราจะพยายามมากขึ้น',
+    '3': '😐 ปานกลาง — ยังมีสิ่งที่ปรับปรุงได้',
+    '4': '🙂 ดี — ขอบคุณสำหรับคะแนน',
+    '5': '😍 ดีมาก — ดีใจที่คุณประทับใจ!'
+  };
+  var starsWrap = document.querySelector('.stars');
+  var caption = document.getElementById('rateCaption');
+
+  function paintStars(val) {
+    starsWrap.querySelectorAll('label').forEach(function (lb, i) {
+      lb.style.color = (i < val) ? 'var(--star)' : 'var(--star-empty)';
+    });
+  }
+  starsWrap.querySelectorAll('input').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      paintStars(parseInt(this.value, 10));
+      caption.textContent = captions[this.value] || '';
+      document.getElementById('f-rating').classList.remove('invalid');
+      document.getElementById('rateError').style.display = 'none';
+    });
+  });
+  starsWrap.querySelectorAll('label').forEach(function (lb, idx) {
+    lb.addEventListener('mouseenter', function () { paintStars(idx + 1); });
+  });
+  starsWrap.addEventListener('mouseleave', function () {
+    var checked = starsWrap.querySelector('input:checked');
+    paintStars(checked ? parseInt(checked.value, 10) : 0);
+  });
+
+  var phone = document.getElementById('phone');
+  var phoneStatus = document.getElementById('phoneStatus');
+  var phoneError = document.getElementById('phoneError');
+  var checkTimer = null;
+  var phoneDuplicate = false;
+
+  // จำกัดไม่ให้เลือกวันเกิดเป็นอนาคต
+  var birthdate = document.getElementById('birthdate');
+  birthdate.max = new Date().toISOString().slice(0, 10);
+  birthdate.addEventListener('change', function () {
+    document.getElementById('f-birthdate').classList.remove('invalid');
+  });
+
+  phone.addEventListener('input', function () {
+    // จัดรูปแบบเป็น 08X-XXX-XXXX
+    var d = this.value.replace(/\D/g, '').slice(0, 10);
+    if (d.length > 6) this.value = d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    else if (d.length > 3) this.value = d.slice(0, 3) + '-' + d.slice(3);
+    else this.value = d;
+
+    // รีเซ็ตสถานะทุกครั้งที่แก้ไข
+    clearTimeout(checkTimer);
+    phoneDuplicate = false;
+    phoneStatus.className = 'status';
+    phoneStatus.textContent = '';
+    document.getElementById('f-phone').classList.remove('invalid');
+    phoneError.textContent = 'กรุณากรอกเบอร์โทร 10 หลักให้ถูกต้อง';
+
+    // ครบ 10 หลักถูกต้อง → เช็กเบอร์ซ้ำ (หน่วง 450ms)
+    if (/^0\d{9}$/.test(d)) {
+      phoneStatus.className = 'status checking';
+      phoneStatus.textContent = 'กำลังตรวจสอบเบอร์...';
+      checkTimer = setTimeout(function () { checkPhone(d); }, 450);
+    }
+  });
+
+  async function checkPhone(digits) {
+    try {
+      var r = await fetch('/api/check-phone?phone=' + encodeURIComponent(digits));
+      var data = await r.json();
+      // ถ้าผู้ใช้แก้เบอร์ไปแล้ว ไม่ต้องอัปเดต
+      if (phone.value.replace(/\D/g, '') !== digits) return;
+      if (data.exists) {
+        phoneDuplicate = true;
+        phoneStatus.className = 'status';
+        phoneStatus.textContent = '';
+        phoneError.textContent = 'เบอร์โทรนี้เคยกรอกแบบสอบถามแล้ว ไม่สามารถกรอกซ้ำได้';
+        document.getElementById('f-phone').classList.add('invalid');
+      } else {
+        phoneDuplicate = false;
+        phoneStatus.className = 'status ok';
+        phoneStatus.textContent = '✓ ใช้เบอร์นี้ได้';
+      }
+    } catch (e) {
+      phoneStatus.className = 'status';
+      phoneStatus.textContent = '';
+    }
+  }
+
+  function setError(id, on) { document.getElementById(id).classList.toggle('invalid', on); }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    formError.classList.remove('show');
+    var ok = true;
+
+    var name = document.getElementById('name').value.trim();
+    setError('f-name', !name); if (!name) ok = false;
+
+    var email = document.getElementById('email').value.trim();
+    var emailOk = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
+    setError('f-email', !emailOk); if (!emailOk) ok = false;
+
+    var digits = phone.value.replace(/\D/g, '');
+    var phoneOk = /^0\d{9}$/.test(digits);
+    if (!phoneOk) phoneError.textContent = 'กรุณากรอกเบอร์โทร 10 หลักให้ถูกต้อง';
+    if (phoneOk && phoneDuplicate) {
+      phoneError.textContent = 'เบอร์โทรนี้เคยกรอกแบบสอบถามแล้ว ไม่สามารถกรอกซ้ำได้';
+    }
+    var phoneValid = phoneOk && !phoneDuplicate;
+    setError('f-phone', !phoneValid); if (!phoneValid) ok = false;
+
+    var bd = birthdate.value;
+    var bdOk = /^\d{4}-\d{2}-\d{2}$/.test(bd) && bd <= birthdate.max && bd >= '1900-01-01';
+    setError('f-birthdate', !bdOk); if (!bdOk) ok = false;
+
+    var rating = form.querySelector('input[name="rating"]:checked');
+    document.getElementById('f-rating').classList.toggle('invalid', !rating);
+    document.getElementById('rateError').style.display = rating ? 'none' : 'block';
+    if (!rating) ok = false;
+
+    if (!ok) {
+      var firstBad = document.querySelector('.invalid');
+      if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    var payload = {
+      name: name, email: email, phone: digits, birthdate: bd,
+      rating: parseInt(rating.value, 10),
+      comment: document.getElementById('comment').value.trim()
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'กำลังส่ง...';
+    try {
+      var resp = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var result = await resp.json();
+
+      // เซิร์ฟเวอร์ตีกลับพร้อมข้อผิดพลาดรายช่อง (เช่น เบอร์ซ้ำ)
+      if (!resp.ok || !result.ok) {
+        if (result && result.errors) {
+          if (result.errors.name) setError('f-name', true);
+          if (result.errors.email) setError('f-email', true);
+          if (result.errors.birthdate) setError('f-birthdate', true);
+          if (result.errors.phone) {
+            document.getElementById('phoneError').textContent = result.errors.phone;
+            setError('f-phone', true);
+            document.getElementById('f-phone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return; // แสดงข้อความใต้ช่องแล้ว ไม่ต้องขึ้น error รวม
+        }
+        throw new Error('server');
+      }
+
+      document.getElementById('thanksMsg').textContent =
+        'คุณให้คะแนนความพึงพอใจ ' + result.rating + ' จาก 5 ดาว — เราได้รับความคิดเห็นเรียบร้อยแล้ว';
+      form.classList.add('hide');
+      document.getElementById('thanks').classList.add('show');
+    } catch (err) {
+      formError.classList.add('show');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'ส่งแบบสอบถาม';
+    }
+  });
+
+  document.getElementById('again').addEventListener('click', function () {
+    form.reset();
+    paintStars(0);
+    caption.textContent = 'แตะที่ดาวเพื่อให้คะแนน';
+    document.querySelectorAll('.invalid').forEach(function (el) { el.classList.remove('invalid'); });
+    document.getElementById('thanks').classList.remove('show');
+    form.classList.remove('hide');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+</body>
+</html>

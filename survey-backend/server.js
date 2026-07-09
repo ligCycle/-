@@ -1,0 +1,284 @@
+// ระบบหลังบ้านแบบสอบถามความพึงพอใจ — Node.js ล้วน ไม่ต้องติดตั้งแพ็กเกจเพิ่ม
+// เก็บคำตอบไว้ใน data/responses.json และมีหน้า Admin (ต้องล็อกอิน) เพื่อดูผู้กรอก
+
+import http from 'node:http';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// ---------- ตั้งค่า (แก้ได้ หรือกำหนดผ่าน environment variable) ----------
+const PORT = process.env.PORT || 3000;
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'changeme123'; // << เปลี่ยนรหัสผ่านนี้ก่อนใช้งานจริง
+
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const DATA_DIR = path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'responses.json');
+
+// ---------- เตรียมที่เก็บข้อมูล ----------
+fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]', 'utf8');
+
+async function readResponses() {
+  try {
+    const raw = await fsp.readFile(DATA_FILE, 'utf8');
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+// เขียนแบบทีละคิว กันไฟล์พัง + กันเบอร์ซ้ำเวลามีคนส่งพร้อมกัน
+let writeQueue = Promise.resolve();
+function saveResponseUnique(item) {
+  const task = writeQueue.then(async () => {
+    const all = await readResponses();
+    // เบอร์โทรต้องไม่ซ้ำกับที่เคยกรอกไว้
+    if (all.some((r) => r.phone === item.phone)) {
+      return { ok: false, duplicate: true };
+    }
+    all.push(item);
+    const tmp = DATA_FILE + '.tmp';
+    await fsp.writeFile(tmp, JSON.stringify(all, null, 2), 'utf8');
+    await fsp.rename(tmp, DATA_FILE);
+    return { ok: true };
+  });
+  // ให้คิวเดินต่อได้เสมอ แม้ครั้งนี้จะ error
+  writeQueue = task.then(() => {}, () => {});
+  return task;
+}
+
+// ---------- helper ----------
+function send(res, status, body, headers = {}) {
+  res.writeHead(status, { 'Cache-Control': 'no-store', ...headers });
+  res.end(body);
+}
+function sendJson(res, status, obj) {
+  send(res, status, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8' });
+}
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+};
+
+async function serveStatic(res, relPath) {
+  // ป้องกัน path traversal
+  const safe = path.normalize(relPath).replace(/^(\.\.[/\\])+/, '');
+  const filePath = path.join(PUBLIC_DIR, safe);
+  if (!filePath.startsWith(PUBLIC_DIR)) return send(res, 403, 'Forbidden');
+  try {
+    const data = await fsp.readFile(filePath);
+    const type = MIME[path.extname(filePath)] || 'application/octet-stream';
+    send(res, 200, data, { 'Content-Type': type });
+  } catch {
+    send(res, 404, 'Not found');
+  }
+}
+
+// ---------- ตรวจสอบสิทธิ์ Admin (HTTP Basic Auth) ----------
+function timingSafeEqual(a, b) {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+function isAuthed(req) {
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Basic ')) return false;
+  let decoded;
+  try {
+    decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+  } catch {
+    return false;
+  }
+  const idx = decoded.indexOf(':');
+  if (idx < 0) return false;
+  const user = decoded.slice(0, idx);
+  const pass = decoded.slice(idx + 1);
+  return timingSafeEqual(user, ADMIN_USER) && timingSafeEqual(pass, ADMIN_PASS);
+}
+function requireAuth(res) {
+  send(res, 401, 'ต้องเข้าสู่ระบบ', {
+    'WWW-Authenticate': 'Basic realm="Survey Admin", charset="UTF-8"',
+    'Content-Type': 'text/plain; charset=utf-8',
+  });
+}
+
+// ---------- ตรวจสอบข้อมูลฝั่งเซิร์ฟเวอร์ ----------
+function validate(body) {
+  const errors = {};
+  const name = String(body.name || '').trim();
+  const email = String(body.email || '').trim();
+  const phone = String(body.phone || '').replace(/\D/g, '');
+  const birthdate = String(body.birthdate || '').trim();
+  const rating = parseInt(body.rating, 10);
+  const comment = String(body.comment || '').trim();
+
+  if (!name) errors.name = 'กรุณากรอกชื่อ-นามสกุล';
+  if (name.length > 120) errors.name = 'ชื่อยาวเกินไป';
+  if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) errors.email = 'ต้องเป็นอีเมล @gmail.com ที่ถูกต้อง';
+  if (!/^0\d{9}$/.test(phone)) errors.phone = 'เบอร์โทรต้องเป็นเลข 10 หลักขึ้นต้นด้วย 0';
+
+  // วันเกิด: รูปแบบ YYYY-MM-DD, เป็นวันที่จริง, ไม่เป็นอนาคต, ปี >= 1900
+  const today = new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthdate)) {
+    errors.birthdate = 'กรุณาเลือกวันเกิด';
+  } else {
+    const d = new Date(birthdate + 'T00:00:00Z');
+    if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== birthdate) errors.birthdate = 'วันเกิดไม่ถูกต้อง';
+    else if (birthdate > today) errors.birthdate = 'วันเกิดต้องไม่เป็นอนาคต';
+    else if (birthdate < '1900-01-01') errors.birthdate = 'ปีเกิดไม่ถูกต้อง';
+  }
+
+  if (!(rating >= 1 && rating <= 5)) errors.rating = 'กรุณาให้คะแนน 1-5';
+  if (comment.length > 2000) errors.comment = 'ข้อความยาวเกินไป';
+
+  return { errors, clean: { name, email, phone, birthdate, rating, comment: comment.slice(0, 2000) } };
+}
+
+function readBody(req, limit = 1_000_000) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > limit) {
+        reject(new Error('payload too large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+function toCsv(rows) {
+  const headers = ['ลำดับ', 'วันเวลา', 'ชื่อ-นามสกุล', 'อีเมล', 'เบอร์โทร', 'วันเกิด', 'อายุ', 'คะแนน', 'ข้อเสนอแนะ'];
+  const esc = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const lines = rows.map((r, i) =>
+    [i + 1, formatDate(r.submittedAt), r.name, r.email, r.phone, r.birthdate, ageFrom(r.birthdate), r.rating, r.comment].map(esc).join(',')
+  );
+  return '﻿' + headers.map(esc).join(',') + '\r\n' + lines.join('\r\n');
+}
+
+function ageFrom(birthdate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthdate || '')) return '';
+  const b = new Date(birthdate + 'T00:00:00Z');
+  const now = new Date();
+  let age = now.getUTCFullYear() - b.getUTCFullYear();
+  const m = now.getUTCMonth() - b.getUTCMonth();
+  if (m < 0 || (m === 0 && now.getUTCDate() < b.getUTCDate())) age--;
+  return age >= 0 && age < 150 ? age : '';
+}
+
+function formatDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Bangkok' });
+  } catch {
+    return iso;
+  }
+}
+
+// ---------- เซิร์ฟเวอร์ ----------
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const p = url.pathname;
+
+  try {
+    // --- ส่งแบบสอบถาม ---
+    if (req.method === 'POST' && p === '/api/submit') {
+      let body;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        return sendJson(res, 400, { ok: false, message: 'ข้อมูลไม่ถูกต้อง' });
+      }
+      const { errors, clean } = validate(body);
+      if (Object.keys(errors).length) return sendJson(res, 422, { ok: false, errors });
+
+      const item = {
+        id: crypto.randomUUID(),
+        ...clean,
+        submittedAt: new Date().toISOString(),
+        ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim(),
+      };
+      const saved = await saveResponseUnique(item);
+      if (!saved.ok && saved.duplicate) {
+        return sendJson(res, 409, {
+          ok: false,
+          errors: { phone: 'เบอร์โทรนี้เคยกรอกแบบสอบถามแล้ว ไม่สามารถกรอกซ้ำได้' },
+        });
+      }
+      return sendJson(res, 200, { ok: true, id: item.id, rating: item.rating });
+    }
+
+    // --- เช็กเบอร์ซ้ำแบบ real-time (คืนแค่ true/false ไม่เปิดเผยข้อมูล) ---
+    if (req.method === 'GET' && p === '/api/check-phone') {
+      const phone = (url.searchParams.get('phone') || '').replace(/\D/g, '');
+      if (!/^0\d{9}$/.test(phone)) return sendJson(res, 200, { ok: true, valid: false, exists: false });
+      const all = await readResponses();
+      return sendJson(res, 200, { ok: true, valid: true, exists: all.some((r) => r.phone === phone) });
+    }
+
+    // --- พื้นที่ Admin (ต้องล็อกอินทั้งหมด) ---
+    if (p === '/admin' || p.startsWith('/api/responses') || p.startsWith('/api/export')) {
+      if (!isAuthed(req)) return requireAuth(res);
+
+      if (p === '/admin') return serveStatic(res, 'admin.html');
+
+      if (p === '/api/responses') {
+        const all = await readResponses();
+        all.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+        return sendJson(res, 200, { ok: true, count: all.length, responses: all });
+      }
+
+      if (p === '/api/export.csv') {
+        const all = await readResponses();
+        all.sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+        return send(res, 200, toCsv(all), {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="survey_responses.csv"',
+        });
+      }
+    }
+
+    // --- หน้าแบบสอบถาม ---
+    if (req.method === 'GET' && (p === '/' || p === '/index.html')) {
+      return serveStatic(res, 'index.html');
+    }
+
+    // --- ไฟล์ static อื่น ๆ ---
+    if (req.method === 'GET') {
+      return serveStatic(res, p.slice(1));
+    }
+
+    send(res, 404, 'Not found');
+  } catch (err) {
+    console.error(err);
+    sendJson(res, 500, { ok: false, message: 'เกิดข้อผิดพลาดในระบบ' });
+  }
+});
+
+server.listen(PORT, () => {
+  console.log('');
+  console.log('  ✅ ระบบแบบสอบถามพร้อมใช้งานแล้ว');
+  console.log('  ─────────────────────────────────────────');
+  console.log(`  📝 หน้ากรอกแบบสอบถาม : http://localhost:${PORT}/`);
+  console.log(`  🔐 หน้า Admin (ดูผู้กรอก): http://localhost:${PORT}/admin`);
+  console.log(`     ผู้ใช้: ${ADMIN_USER}   รหัสผ่าน: ${ADMIN_PASS}`);
+  console.log('  ─────────────────────────────────────────');
+  console.log('  กด Ctrl+C เพื่อหยุดเซิร์ฟเวอร์');
+  console.log('');
+});

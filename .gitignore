@@ -1,0 +1,13 @@
+# ข้อมูลคำตอบลูกค้า (มีข้อมูลส่วนตัว — ห้ามอัปขึ้น repo)
+survey-backend/data/responses.json
+survey-backend/data/*.tmp
+
+# Node
+node_modules/
+npm-debug.log*
+
+# ระบบ / เอดิเตอร์
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

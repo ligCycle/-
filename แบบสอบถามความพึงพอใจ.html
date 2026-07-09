@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>แบบสอบถามความพึงพอใจ</title>
+<style>
+  :root {
+    --bg: #eef1ef;
+    --card: #ffffff;
+    --ink: #16211f;
+    --ink-soft: #55635f;
+    --ink-faint: #8b9793;
+    --line: #dce2df;
+    --field: #f7f9f8;
+    --field-focus: #ffffff;
+    --accent: #0d8b7f;
+    --accent-ink: #ffffff;
+    --accent-soft: #e2f2ef;
+    --star: #f59e0b;
+    --star-empty: #d3d9d6;
+    --danger: #d5453b;
+    --shadow: 0 1px 2px rgba(22,33,31,.04), 0 12px 40px -18px rgba(22,33,31,.28);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1513;
+      --card: #16201d;
+      --ink: #eef3f1;
+      --ink-soft: #a5b2ae;
+      --ink-faint: #6f7d78;
+      --line: #2a3733;
+      --field: #101815;
+      --field-focus: #131d1a;
+      --accent: #2bb3a3;
+      --accent-ink: #04120f;
+      --accent-soft: #12302b;
+      --star: #f5b433;
+      --star-empty: #3a4642;
+      --danger: #ff6b60;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 18px 50px -20px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1ef; --card: #ffffff; --ink: #16211f; --ink-soft: #55635f;
+    --ink-faint: #8b9793; --line: #dce2df; --field: #f7f9f8; --field-focus: #ffffff;
+    --accent: #0d8b7f; --accent-ink: #ffffff; --accent-soft: #e2f2ef;
+    --star: #f59e0b; --star-empty: #d3d9d6; --danger: #d5453b;
+    --shadow: 0 1px 2px rgba(22,33,31,.04), 0 12px 40px -18px rgba(22,33,31,.28);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1513; --card: #16201d; --ink: #eef3f1; --ink-soft: #a5b2ae;
+    --ink-faint: #6f7d78; --line: #2a3733; --field: #101815; --field-focus: #131d1a;
+    --accent: #2bb3a3; --accent-ink: #04120f; --accent-soft: #12302b;
+    --star: #f5b433; --star-empty: #3a4642; --danger: #ff6b60;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 18px 50px -20px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", "Leelawadee UI", "Noto Sans Thai", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    padding: clamp(16px, 4vw, 48px) 16px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .wrap { width: 100%; max-width: 560px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .head {
+    padding: clamp(24px, 5vw, 38px) clamp(22px, 5vw, 40px) clamp(20px, 4vw, 30px);
+    border-bottom: 1px solid var(--line);
+    background:
+      radial-gradient(120% 140% at 100% 0%, var(--accent-soft) 0%, transparent 55%);
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(22px, 5vw, 28px);
+    line-height: 1.2;
+    margin: 0 0 8px;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+  .sub { margin: 0; color: var(--ink-soft); font-size: 15px; }
+
+  form { padding: clamp(22px, 5vw, 36px) clamp(22px, 5vw, 40px); display: flex; flex-direction: column; gap: 26px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  label { font-weight: 600; font-size: 15px; }
+  .req { color: var(--accent); font-weight: 700; }
+  .hint { font-size: 13px; color: var(--ink-faint); }
+
+  input[type="text"], input[type="email"], input[type="tel"], textarea {
+    font: inherit;
+    color: var(--ink);
+    background: var(--field);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    width: 100%;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  textarea { resize: vertical; min-height: 92px; }
+  input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--field-focus);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .field.invalid input, .field.invalid textarea { border-color: var(--danger); }
+  .error { color: var(--danger); font-size: 13px; min-height: 0; display: none; }
+  .field.invalid .error { display: block; }
+
+  /* Rating */
+  fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  legend { font-weight: 600; font-size: 15px; padding: 0; }
+  .stars { display: flex; gap: 6px; direction: ltr; }
+  .stars input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .stars label {
+    cursor: pointer;
+    line-height: 0;
+    color: var(--star-empty);
+    transition: transform .12s, color .12s;
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .stars label svg { width: 38px; height: 38px; display: block; }
+  .stars label:hover { transform: scale(1.12); }
+  .stars input:focus-visible + label { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .stars.on label { color: var(--star); }
+  .rate-caption { font-size: 14px; color: var(--ink-soft); min-height: 20px; font-weight: 600; }
+
+  button {
+    font: inherit;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--accent-ink);
+    background: var(--accent);
+    border: 0;
+    border-radius: 11px;
+    padding: 14px 20px;
+    cursor: pointer;
+    transition: filter .15s, transform .05s;
+  }
+  button:hover { filter: brightness(1.06); }
+  button:active { transform: translateY(1px); }
+  button:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+
+  .foot { text-align: center; font-size: 12.5px; color: var(--ink-faint); margin-top: 18px; }
+
+  /* Admin bar */
+  .admin { margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .admin button {
+    background: transparent; color: var(--ink-soft); border: 1.5px solid var(--line);
+    font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 9px;
+  }
+  .admin button:hover { color: var(--accent); border-color: var(--accent); filter: none; }
+
+  /* Thank-you state */
+  .thanks { padding: clamp(36px, 8vw, 64px) clamp(24px, 6vw, 44px); text-align: center; display: none; flex-direction: column; align-items: center; gap: 14px; }
+  .thanks.show { display: flex; }
+  form.hide { display: none; }
+  .check {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center;
+    animation: pop .4s cubic-bezier(.2,.8,.3,1.4);
+  }
+  .check svg { width: 38px; height: 38px; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .thanks h2 { margin: 0; font-size: 24px; }
+  .thanks p { margin: 0; color: var(--ink-soft); max-width: 34ch; }
+  .again {
+    margin-top: 8px; background: transparent; color: var(--accent);
+    border: 1.5px solid var(--line); padding: 10px 18px; font-size: 14px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .check { animation: none; }
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="card">
+    <div class="head">
+      <p class="eyebrow">แบบสอบถาม</p>
+      <h1>บอกเราหน่อยว่าเราทำได้ดีแค่ไหน</h1>
+      <p class="sub">ความคิดเห็นของคุณช่วยให้เราพัฒนาบริการให้ดียิ่งขึ้น ใช้เวลาไม่ถึง 1 นาที</p>
+    </div>
+
+    <form id="survey" novalidate>
+      <div class="field" id="f-name">
+        <label for="name">ชื่อ-นามสกุล <span class="req">*</span></label>
+        <input type="text" id="name" name="name" placeholder="เช่น สมชาย ใจดี" autocomplete="name" />
+        <span class="error">กรุณากรอกชื่อ-นามสกุล</span>
+      </div>
+
+      <div class="field" id="f-email">
+        <label for="email">อีเมล (Gmail) <span class="req">*</span></label>
+        <input type="email" id="email" name="email" placeholder="yourname@gmail.com" autocomplete="email" inputmode="email" />
+        <span class="hint">ใช้อีเมล Gmail ที่ลงท้ายด้วย @gmail.com</span>
+        <span class="error">กรุณากรอกอีเมล Gmail ที่ถูกต้อง (ลงท้ายด้วย @gmail.com)</span>
+      </div>
+
+      <div class="field" id="f-phone">
+        <label for="phone">เบอร์โทรศัพท์ <span class="req">*</span></label>
+        <input type="tel" id="phone" name="phone" placeholder="08X-XXX-XXXX" autocomplete="tel" inputmode="numeric" maxlength="12" />
+        <span class="hint">เบอร์มือถือ 10 หลัก</span>
+        <span class="error">กรุณากรอกเบอร์โทร 10 หลักให้ถูกต้อง</span>
+      </div>
+
+      <fieldset id="f-rating">
+        <legend>ความพึงพอใจโดยรวม <span class="req">*</span></legend>
+        <div class="stars" role="radiogroup" aria-label="ให้คะแนนความพึงพอใจ 1 ถึง 5 ดาว">
+          <input type="radio" name="rating" id="s1" value="1" /><label for="s1" title="1 - แย่มาก" aria-label="1 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+          <input type="radio" name="rating" id="s2" value="2" /><label for="s2" title="2 - พอใช้" aria-label="2 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+          <input type="radio" name="rating" id="s3" value="3" /><label for="s3" title="3 - ปานกลาง" aria-label="3 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+          <input type="radio" name="rating" id="s4" value="4" /><label for="s4" title="4 - ดี" aria-label="4 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+          <input type="radio" name="rating" id="s5" value="5" /><label for="s5" title="5 - ดีมาก" aria-label="5 ดาว"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 2.5z"/></svg></label>
+        </div>
+        <div class="rate-caption" id="rateCaption" aria-live="polite">แตะที่ดาวเพื่อให้คะแนน</div>
+        <span class="error" id="rateError">กรุณาให้คะแนนความพึงพอใจ</span>
+      </fieldset>
+
+      <div class="field">
+        <label for="comment">ข้อเสนอแนะเพิ่มเติม <span class="hint" style="font-weight:400">(ไม่บังคับ)</span></label>
+        <textarea id="comment" name="comment" placeholder="สิ่งที่คุณประทับใจ หรืออยากให้เราปรับปรุง..."></textarea>
+      </div>
+
+      <button type="submit">ส่งแบบสอบถาม</button>
+      <p class="foot">ข้อมูลของคุณจะถูกเก็บเป็นความลับ และใช้เพื่อพัฒนาบริการเท่านั้น</p>
+
+      <div class="admin">
+        <button type="button" id="btnDownload">⬇️ ดาวน์โหลดคำตอบ (CSV)</button>
+        <button type="button" id="btnCount">📊 ดูจำนวนคำตอบ</button>
+      </div>
+    </form>
+
+    <div class="thanks" id="thanks">
+      <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h2>ขอบคุณมากครับ/ค่ะ 🙏</h2>
+      <p id="thanksMsg">เราได้รับความคิดเห็นของคุณเรียบร้อยแล้ว</p>
+      <button type="button" class="again" id="again">ส่งอีกครั้ง</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var form = document.getElementById('survey');
+  var captions = {
+    '1': '😞 แย่มาก — ขออภัยที่ทำให้ผิดหวัง',
+    '2': '😕 พอใช้ — เราจะพยายามมากขึ้น',
+    '3': '😐 ปานกลาง — ยังมีสิ่งที่ปรับปรุงได้',
+    '4': '🙂 ดี — ขอบคุณสำหรับคะแนน',
+    '5': '😍 ดีมาก — ดีใจที่คุณประทับใจ!'
+  };
+  var starsWrap = document.querySelector('.stars');
+  var caption = document.getElementById('rateCaption');
+
+  function paintStars(val) {
+    var labels = starsWrap.querySelectorAll('label');
+    labels.forEach(function (lb, i) {
+      lb.style.color = (i < val) ? 'var(--star)' : 'var(--star-empty)';
+    });
+  }
+  starsWrap.querySelectorAll('input').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      var v = parseInt(this.value, 10);
+      paintStars(v);
+      caption.textContent = captions[this.value] || '';
+      document.getElementById('f-rating').classList.remove('invalid');
+    });
+  });
+  starsWrap.querySelectorAll('label').forEach(function (lb, idx) {
+    lb.addEventListener('mouseenter', function () { paintStars(idx + 1); });
+  });
+  starsWrap.addEventListener('mouseleave', function () {
+    var checked = starsWrap.querySelector('input:checked');
+    paintStars(checked ? parseInt(checked.value, 10) : 0);
+  });
+
+  // phone: keep digits only, live format
+  var phone = document.getElementById('phone');
+  phone.addEventListener('input', function () {
+    var d = this.value.replace(/\D/g, '').slice(0, 10);
+    if (d.length > 6) this.value = d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    else if (d.length > 3) this.value = d.slice(0, 3) + '-' + d.slice(3);
+    else this.value = d;
+  });
+
+  function setError(id, on) {
+    document.getElementById(id).classList.toggle('invalid', on);
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var ok = true;
+
+    var name = document.getElementById('name').value.trim();
+    setError('f-name', !name); if (!name) ok = false;
+
+    var email = document.getElementById('email').value.trim();
+    var emailOk = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
+    setError('f-email', !emailOk); if (!emailOk) ok = false;
+
+    var digits = phone.value.replace(/\D/g, '');
+    var phoneOk = /^0\d{9}$/.test(digits);
+    setError('f-phone', !phoneOk); if (!phoneOk) ok = false;
+
+    var rating = form.querySelector('input[name="rating"]:checked');
+    document.getElementById('f-rating').classList.toggle('invalid', !rating);
+    if (!rating) ok = false;
+
+    if (!ok) {
+      var firstBad = document.querySelector('.invalid');
+      if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    var data = {
+      name: name,
+      email: email,
+      phone: digits,
+      rating: parseInt(rating.value, 10),
+      comment: document.getElementById('comment').value.trim(),
+      submittedAt: new Date().toISOString()
+    };
+
+    try {
+      var all = JSON.parse(localStorage.getItem('survey_responses') || '[]');
+      all.push(data);
+      localStorage.setItem('survey_responses', JSON.stringify(all));
+    } catch (err) {}
+
+    document.getElementById('thanksMsg').textContent =
+      'คุณให้คะแนนความพึงพอใจ ' + data.rating + ' จาก 5 ดาว — เราได้รับความคิดเห็นเรียบร้อยแล้ว';
+    form.classList.add('hide');
+    document.getElementById('thanks').classList.add('show');
+    document.getElementById('thanks').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  document.getElementById('again').addEventListener('click', function () {
+    form.reset();
+    paintStars(0);
+    caption.textContent = 'แตะที่ดาวเพื่อให้คะแนน';
+    document.querySelectorAll('.invalid').forEach(function (el) { el.classList.remove('invalid'); });
+    document.getElementById('thanks').classList.remove('show');
+    form.classList.remove('hide');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // ----- สำหรับเจ้าของแบบสอบถาม: ดูจำนวน / ดาวน์โหลดคำตอบเป็น CSV -----
+  function getResponses() {
+    try { return JSON.parse(localStorage.getItem('survey_responses') || '[]'); }
+    catch (e) { return []; }
+  }
+
+  document.getElementById('btnCount').addEventListener('click', function () {
+    var all = getResponses();
+    if (!all.length) { alert('ยังไม่มีคำตอบในเครื่องนี้'); return; }
+    var sum = all.reduce(function (s, r) { return s + (r.rating || 0); }, 0);
+    var avg = (sum / all.length).toFixed(2);
+    alert('มีคำตอบทั้งหมด ' + all.length + ' รายการ\nคะแนนเฉลี่ย ' + avg + ' / 5 ดาว');
+  });
+
+  document.getElementById('btnDownload').addEventListener('click', function () {
+    var all = getResponses();
+    if (!all.length) { alert('ยังไม่มีคำตอบให้ดาวน์โหลด'); return; }
+    var headers = ['ชื่อ-นามสกุล', 'อีเมล', 'เบอร์โทร', 'คะแนน', 'ข้อเสนอแนะ', 'เวลาส่ง'];
+    function esc(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+    var rows = all.map(function (r) {
+      return [r.name, r.email, r.phone, r.rating, r.comment, r.submittedAt].map(esc).join(',');
+    });
+    var csv = '﻿' + headers.map(esc).join(',') + '\n' + rows.join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'survey_responses.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+</script>
+</body>
+</html>
