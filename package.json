@@ -1,0 +1,12 @@
+{
+  "name": "survey-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "แบบสอบถามความพึงพอใจ + ระบบหลังบ้าน (entry point สำหรับ deploy)",
+  "scripts": {
+    "start": "node survey-backend/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
