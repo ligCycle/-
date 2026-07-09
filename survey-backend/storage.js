@@ -2,13 +2,15 @@
 // - ถ้ามี DATABASE_URL  -> ใช้ PostgreSQL
 // - ถ้าไม่มี            -> ใช้ไฟล์ JSON (สำหรับรันในเครื่องที่ไม่มีฐานข้อมูล)
 //
-// ทุก implementation คืน interface เดียวกัน:
-//   store.kind                     ชนิดที่ใช้ ('postgres' | 'file')
-//   store.all()        -> Promise<item[]>   (เรียงใหม่สุดก่อน)
-//   store.phoneExists(phone) -> Promise<boolean>
-//   store.insert(item) -> Promise<{ ok: true } | { ok: false, duplicate: true }>
+// interface เดียวกัน:
+//   store.kind
+//   store.all()               -> Promise<item[]>  (ใหม่สุดก่อน, แต่ละ item มี hasPhoto:boolean)
+//   store.phoneExists(phone)  -> Promise<boolean>
+//   store.insert(item)        -> Promise<{ ok:true } | { ok:false, duplicate:true }>
+//   store.getPhoto(id)        -> Promise<{ mime, buffer } | null>
 //
-// รูปแบบ item: { id, name, email, phone, birthdate:'YYYY-MM-DD', rating, comment, ip, submittedAt:ISO }
+// item: { id, name, email, phone, birthdate:'YYYY-MM-DD', rating, comment, ip, submittedAt:ISO,
+//         photo?: { mime, ext, buffer } }   // photo ใส่ตอน insert เท่านั้น
 
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -23,7 +25,6 @@ async function createPgStore() {
   const pg = (await import('pg')).default;
 
   const connectionString = process.env.DATABASE_URL;
-  // Railway (private network) ไม่ต้องใช้ SSL; ถ้าต่อผ่าน public URL ให้ตั้ง PGSSL=require
   const useSSL =
     process.env.PGSSL === 'require' || /[?&]sslmode=require/.test(connectionString);
 
@@ -33,7 +34,6 @@ async function createPgStore() {
     max: 5,
   });
 
-  // สร้างตารางถ้ายังไม่มี — phone เป็น UNIQUE เพื่อกันเบอร์ซ้ำระดับฐานข้อมูล
   await pool.query(`
     CREATE TABLE IF NOT EXISTS responses (
       id           UUID PRIMARY KEY,
@@ -44,12 +44,17 @@ async function createPgStore() {
       rating       INTEGER     NOT NULL,
       comment      TEXT        NOT NULL DEFAULT '',
       ip           TEXT        NOT NULL DEFAULT '',
-      submitted_at TIMESTAMPTZ NOT NULL
+      submitted_at TIMESTAMPTZ NOT NULL,
+      photo        BYTEA,
+      photo_mime   TEXT
     )
   `);
+  // เผื่อตารางเดิมยังไม่มีคอลัมน์รูป
+  await pool.query('ALTER TABLE responses ADD COLUMN IF NOT EXISTS photo BYTEA');
+  await pool.query('ALTER TABLE responses ADD COLUMN IF NOT EXISTS photo_mime TEXT');
 
-  const SELECT_COLS =
-    "id, name, email, phone, to_char(birthdate,'YYYY-MM-DD') AS birthdate, rating, comment, ip, submitted_at";
+  const LIST_COLS =
+    "id, name, email, phone, to_char(birthdate,'YYYY-MM-DD') AS birthdate, rating, comment, ip, submitted_at, (photo IS NOT NULL) AS has_photo";
 
   const toItem = (row) => ({
     id: row.id,
@@ -61,14 +66,13 @@ async function createPgStore() {
     comment: row.comment,
     ip: row.ip,
     submittedAt: row.submitted_at instanceof Date ? row.submitted_at.toISOString() : row.submitted_at,
+    hasPhoto: row.has_photo === true,
   });
 
   return {
     kind: 'postgres',
     async all() {
-      const { rows } = await pool.query(
-        `SELECT ${SELECT_COLS} FROM responses ORDER BY submitted_at DESC`
-      );
+      const { rows } = await pool.query(`SELECT ${LIST_COLS} FROM responses ORDER BY submitted_at DESC`);
       return rows.map(toItem);
     },
     async phoneExists(phone) {
@@ -78,26 +82,37 @@ async function createPgStore() {
     async insert(item) {
       try {
         await pool.query(
-          `INSERT INTO responses (id, name, email, phone, birthdate, rating, comment, ip, submitted_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [item.id, item.name, item.email, item.phone, item.birthdate, item.rating, item.comment, item.ip, item.submittedAt]
+          `INSERT INTO responses (id, name, email, phone, birthdate, rating, comment, ip, submitted_at, photo, photo_mime)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [
+            item.id, item.name, item.email, item.phone, item.birthdate, item.rating,
+            item.comment, item.ip, item.submittedAt,
+            item.photo ? item.photo.buffer : null,
+            item.photo ? item.photo.mime : null,
+          ]
         );
         return { ok: true };
       } catch (e) {
-        if (e && e.code === '23505') return { ok: false, duplicate: true }; // unique_violation
+        if (e && e.code === '23505') return { ok: false, duplicate: true };
         throw e;
       }
+    },
+    async getPhoto(id) {
+      if (!/^[0-9a-f-]{36}$/i.test(id || '')) return null;
+      const { rows } = await pool.query('SELECT photo, photo_mime FROM responses WHERE id = $1', [id]);
+      if (!rows.length || !rows[0].photo) return null;
+      return { mime: rows[0].photo_mime || 'application/octet-stream', buffer: rows[0].photo };
     },
   };
 }
 
 // ---------------------------------------------------------------- ไฟล์ JSON
 function createFileStore(dataDir) {
-  const path = dataDir;
-  const DATA_DIR = path;
+  const DATA_DIR = dataDir;
+  const PHOTOS_DIR = `${DATA_DIR}/photos`;
   const DATA_FILE = `${DATA_DIR}/responses.json`;
 
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(PHOTOS_DIR, { recursive: true });
   if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]', 'utf8');
 
   async function readAll() {
@@ -109,7 +124,12 @@ function createFileStore(dataDir) {
     }
   }
 
-  // เขียนทีละคิว กันไฟล์พัง + กันเบอร์ซ้ำเวลามีคนส่งพร้อมกัน
+  const toItem = (r) => ({
+    id: r.id, name: r.name, email: r.email, phone: r.phone, birthdate: r.birthdate,
+    rating: r.rating, comment: r.comment, ip: r.ip, submittedAt: r.submittedAt,
+    hasPhoto: Boolean(r.photoFile),
+  });
+
   let writeQueue = Promise.resolve();
 
   return {
@@ -117,7 +137,7 @@ function createFileStore(dataDir) {
     async all() {
       const all = await readAll();
       all.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-      return all;
+      return all.map(toItem);
     },
     async phoneExists(phone) {
       const all = await readAll();
@@ -127,7 +147,20 @@ function createFileStore(dataDir) {
       const task = writeQueue.then(async () => {
         const all = await readAll();
         if (all.some((r) => r.phone === item.phone)) return { ok: false, duplicate: true };
-        all.push(item);
+
+        let photoFile = null;
+        let photoMime = null;
+        if (item.photo) {
+          photoFile = `${item.id}.${item.photo.ext}`;
+          photoMime = item.photo.mime;
+          await fsp.writeFile(`${PHOTOS_DIR}/${photoFile}`, item.photo.buffer);
+        }
+
+        all.push({
+          id: item.id, name: item.name, email: item.email, phone: item.phone,
+          birthdate: item.birthdate, rating: item.rating, comment: item.comment,
+          ip: item.ip, submittedAt: item.submittedAt, photoFile, photoMime,
+        });
         const tmp = DATA_FILE + '.tmp';
         await fsp.writeFile(tmp, JSON.stringify(all, null, 2), 'utf8');
         await fsp.rename(tmp, DATA_FILE);
@@ -135,6 +168,17 @@ function createFileStore(dataDir) {
       });
       writeQueue = task.then(() => {}, () => {});
       return task;
+    },
+    async getPhoto(id) {
+      const all = await readAll();
+      const r = all.find((x) => x.id === id);
+      if (!r || !r.photoFile) return null;
+      try {
+        const buffer = await fsp.readFile(`${PHOTOS_DIR}/${r.photoFile}`);
+        return { mime: r.photoMime || 'application/octet-stream', buffer };
+      } catch {
+        return null;
+      }
     },
   };
 }

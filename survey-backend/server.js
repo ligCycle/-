@@ -144,7 +144,19 @@ function validate(body) {
   return { errors, clean: { name, email, phone, birthdate, rating, comment: comment.slice(0, 2000) } };
 }
 
-function readBody(req, limit = 1_000_000) {
+// แยกรูปจาก data URL (ไม่บังคับ) — รองรับ JPEG/PNG/WebP
+const PHOTO_MAX_BYTES = 6 * 1024 * 1024; // 6MB หลัง decode
+function parsePhoto(dataUrl) {
+  if (!dataUrl) return { photo: null };
+  const m = /^data:(image\/(jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl));
+  if (!m) return { error: 'ไฟล์รูปไม่ถูกต้อง (รองรับ JPEG, PNG, WebP)' };
+  const buffer = Buffer.from(m[3], 'base64');
+  if (buffer.length === 0) return { error: 'ไฟล์รูปเสียหาย' };
+  if (buffer.length > PHOTO_MAX_BYTES) return { error: 'รูปมีขนาดใหญ่เกินไป (เกิน 6MB)' };
+  return { photo: { mime: m[1], ext: m[2] === 'jpeg' ? 'jpg' : m[2], buffer } };
+}
+
+function readBody(req, limit = 9_000_000) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
@@ -163,10 +175,10 @@ function readBody(req, limit = 1_000_000) {
 }
 
 function toCsv(rows) {
-  const headers = ['ลำดับ', 'วันเวลา', 'ชื่อ-นามสกุล', 'อีเมล', 'เบอร์โทร', 'วันเกิด', 'อายุ', 'คะแนน', 'ข้อเสนอแนะ'];
+  const headers = ['ลำดับ', 'วันเวลา', 'ชื่อ-นามสกุล', 'อีเมล', 'เบอร์โทร', 'วันเกิด', 'อายุ', 'คะแนน', 'ข้อเสนอแนะ', 'รูปถ่าย'];
   const esc = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
   const lines = rows.map((r, i) =>
-    [i + 1, formatDate(r.submittedAt), r.name, r.email, r.phone, r.birthdate, ageFrom(r.birthdate), r.rating, r.comment].map(esc).join(',')
+    [i + 1, formatDate(r.submittedAt), r.name, r.email, r.phone, r.birthdate, ageFrom(r.birthdate), r.rating, r.comment, r.hasPhoto ? 'มี' : '-'].map(esc).join(',')
   );
   return '﻿' + headers.map(esc).join(',') + '\r\n' + lines.join('\r\n');
 }
@@ -205,11 +217,14 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { ok: false, message: 'ข้อมูลไม่ถูกต้อง' });
       }
       const { errors, clean } = validate(body);
+      const parsedPhoto = parsePhoto(body.photo);
+      if (parsedPhoto.error) errors.photo = parsedPhoto.error;
       if (Object.keys(errors).length) return sendJson(res, 422, { ok: false, errors });
 
       const item = {
         id: crypto.randomUUID(),
         ...clean,
+        photo: parsedPhoto.photo,
         submittedAt: new Date().toISOString(),
         ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim(),
       };
@@ -248,13 +263,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     // --- พื้นที่ Admin (ต้องล็อกอินทั้งหมด) ---
-    if (p === '/admin' || p.startsWith('/api/responses') || p.startsWith('/api/export')) {
+    if (p === '/admin' || p.startsWith('/api/responses') || p.startsWith('/api/export') || p.startsWith('/api/photo')) {
       if (!isAuthed(req)) {
         if (p === '/admin') return send(res, 302, '', { Location: '/login' });
         return sendJson(res, 401, { ok: false, message: 'ต้องเข้าสู่ระบบ' });
       }
 
       if (p === '/admin') return serveStatic(res, 'admin.html');
+
+      if (p === '/api/photo') {
+        const photo = await store.getPhoto(url.searchParams.get('id') || '');
+        if (!photo) return send(res, 404, 'Not found');
+        return send(res, 200, photo.buffer, { 'Content-Type': photo.mime, 'Cache-Control': 'private, max-age=3600' });
+      }
 
       if (p === '/api/responses') {
         const all = await store.all(); // เรียงใหม่สุดก่อนอยู่แล้ว

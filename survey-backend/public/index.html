@@ -98,6 +98,22 @@
   .formError { color: var(--danger); font-size: 14px; text-align: center; display: none; }
   .formError.show { display: block; }
   .foot { text-align: center; font-size: 12.5px; color: var(--ink-faint); margin-top: 8px; }
+  .photo-btn {
+    font: inherit; font-weight: 600; font-size: 14px; color: var(--accent);
+    background: var(--field); border: 1.5px dashed var(--line); border-radius: 10px;
+    padding: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .photo-btn:hover { border-color: var(--accent); background: var(--field-focus); filter: none; }
+  .photo-btn svg { width: 20px; height: 20px; }
+  .photo-preview { position: relative; display: inline-block; }
+  .photo-preview img { max-width: 100%; max-height: 280px; border-radius: 12px; border: 1px solid var(--line); display: block; }
+  .photo-remove {
+    position: absolute; top: 8px; right: 8px; font: inherit; font-size: 13px; font-weight: 600;
+    color: #fff; background: rgba(0,0,0,.55); border: 0; border-radius: 8px; padding: 6px 11px; cursor: pointer;
+    backdrop-filter: blur(2px); display: flex; align-items: center; gap: 5px;
+  }
+  .photo-remove:hover { background: rgba(0,0,0,.78); filter: none; }
   .thanks { padding: clamp(36px, 8vw, 64px) clamp(24px, 6vw, 44px); text-align: center; display: none; flex-direction: column; align-items: center; gap: 14px; }
   .thanks.show { display: flex; }
   form.hide { display: none; }
@@ -173,6 +189,20 @@
         <textarea id="comment" name="comment" placeholder="สิ่งที่คุณประทับใจ หรืออยากให้เราปรับปรุง..." maxlength="2000"></textarea>
       </div>
 
+      <div class="field" id="f-photo">
+        <label for="photo">แนบรูปถ่าย <span class="hint" style="font-weight:400">(ไม่บังคับ)</span></label>
+        <input type="file" id="photo" accept="image/*" capture="environment" hidden />
+        <button type="button" class="photo-btn" id="photoBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          เลือกรูป หรือ ถ่ายรูป
+        </button>
+        <div class="photo-preview" id="photoPreview" hidden>
+          <img id="previewImg" alt="ตัวอย่างรูปที่แนบ" />
+          <button type="button" class="photo-remove" id="removePhoto">✕ ลบรูป</button>
+        </div>
+        <span class="error" id="photoError">ไฟล์รูปไม่ถูกต้อง</span>
+      </div>
+
       <button type="submit" id="submitBtn">ส่งแบบสอบถาม</button>
       <p class="formError" id="formError">ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</p>
       <p class="foot">ข้อมูลของคุณจะถูกเก็บเป็นความลับ และใช้เพื่อพัฒนาบริการเท่านั้น</p>
@@ -238,6 +268,70 @@
   birthdate.addEventListener('change', function () {
     document.getElementById('f-birthdate').classList.remove('invalid');
   });
+
+  // ----- รูปถ่าย: เลือก/ถ่าย -> ย่อในเครื่อง -> แสดงตัวอย่าง -----
+  var photoInput = document.getElementById('photo');
+  var photoBtn = document.getElementById('photoBtn');
+  var photoPreview = document.getElementById('photoPreview');
+  var previewImg = document.getElementById('previewImg');
+  var photoError = document.getElementById('photoError');
+  var photoDataUrl = '';
+
+  photoBtn.addEventListener('click', function () { photoInput.click(); });
+  document.getElementById('removePhoto').addEventListener('click', clearPhoto);
+  function clearPhoto() {
+    photoDataUrl = ''; photoInput.value = '';
+    photoPreview.hidden = true; photoBtn.hidden = false;
+    document.getElementById('f-photo').classList.remove('invalid');
+  }
+
+  photoInput.addEventListener('change', async function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    document.getElementById('f-photo').classList.remove('invalid');
+    if (!/^image\//.test(file.type)) {
+      photoError.textContent = 'กรุณาเลือกไฟล์รูปภาพ';
+      document.getElementById('f-photo').classList.add('invalid');
+      return;
+    }
+    photoBtn.disabled = true;
+    try {
+      photoDataUrl = await compressImage(file, 1024, 0.8);
+      previewImg.src = photoDataUrl;
+      photoPreview.hidden = false;
+      photoBtn.hidden = true;
+    } catch (e) {
+      photoError.textContent = 'อ่านรูปไม่สำเร็จ ลองรูปอื่น';
+      document.getElementById('f-photo').classList.add('invalid');
+    } finally {
+      photoBtn.disabled = false;
+    }
+  });
+
+  // ย่อรูปด้วย canvas แล้วคืนเป็น JPEG data URL
+  function compressImage(file, maxDim, quality) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('read')); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onerror = function () { reject(new Error('decode')); };
+        img.onload = function () {
+          var w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+            else { w = Math.round(w * maxDim / h); h = maxDim; }
+          }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   phone.addEventListener('input', function () {
     // จัดรูปแบบเป็น 08X-XXX-XXXX
@@ -326,7 +420,8 @@
     var payload = {
       name: name, email: email, phone: digits, birthdate: bd,
       rating: parseInt(rating.value, 10),
-      comment: document.getElementById('comment').value.trim()
+      comment: document.getElementById('comment').value.trim(),
+      photo: photoDataUrl
     };
 
     submitBtn.disabled = true;
@@ -345,6 +440,7 @@
           if (result.errors.name) setError('f-name', true);
           if (result.errors.email) setError('f-email', true);
           if (result.errors.birthdate) setError('f-birthdate', true);
+          if (result.errors.photo) setError('f-photo', true);
           if (result.errors.phone) {
             document.getElementById('phoneError').textContent = result.errors.phone;
             setError('f-phone', true);
@@ -369,6 +465,7 @@
 
   document.getElementById('again').addEventListener('click', function () {
     form.reset();
+    clearPhoto();
     paintStars(0);
     caption.textContent = 'แตะที่ดาวเพื่อให้คะแนน';
     document.querySelectorAll('.invalid').forEach(function (el) { el.classList.remove('invalid'); });

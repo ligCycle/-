@@ -1,6 +1,7 @@
 # ข้อมูลคำตอบลูกค้า (มีข้อมูลส่วนตัว — ห้ามอัปขึ้น repo)
 survey-backend/data/responses.json
 survey-backend/data/*.tmp
+survey-backend/data/photos/
 
 # Node
 node_modules/

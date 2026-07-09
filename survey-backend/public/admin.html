@@ -73,7 +73,9 @@
   .search input:focus { outline: none; border-color: var(--accent); }
 
   .tablewrap { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 840px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 920px; }
+  .thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); cursor: pointer; display: block; transition: transform .12s; }
+  .thumb:hover { transform: scale(1.06); }
   thead th {
     text-align: left; font-size: 12px; letter-spacing: .05em; text-transform: uppercase;
     color: var(--ink-faint); font-weight: 700; padding: 14px 16px; border-bottom: 1.5px solid var(--line);
@@ -128,6 +130,7 @@
           <th>อีเมล (Gmail)</th>
           <th>เบอร์โทร</th>
           <th>วันเกิด (อายุ)</th>
+          <th>รูป</th>
           <th>คะแนน</th>
           <th>ข้อเสนอแนะ</th>
           <th>วันเวลาที่ส่ง</th>
@@ -152,6 +155,11 @@
   function stars(n) {
     var full = '★'.repeat(n) + '☆'.repeat(5 - n);
     return '<span class="stars-cell">' + full + '<span class="n">' + n + '/5</span></span>';
+  }
+  function photoCell(r) {
+    if (!r.hasPhoto) return '<span class="num">—</span>';
+    var src = '/api/photo?id=' + encodeURIComponent(r.id);
+    return '<a href="' + src + '" target="_blank" rel="noopener" title="เปิดรูปเต็ม"><img class="thumb" src="' + src + '" alt="รูปของ ' + esc(r.name) + '" loading="lazy"></a>';
   }
   function fmtDate(iso) {
     try {
@@ -209,6 +217,7 @@
         '<td><a class="mail" href="mailto:' + esc(r.email) + '">' + esc(r.email) + '</a></td>' +
         '<td><a class="tel" href="tel:' + esc(r.phone) + '">' + esc(phoneDisp) + '</a></td>' +
         '<td class="when">' + fmtBirthdate(r.birthdate) + '</td>' +
+        '<td>' + photoCell(r) + '</td>' +
         '<td>' + stars(r.rating) + '</td>' +
         '<td class="comment">' + (r.comment ? esc(r.comment) : '<span class="num">—</span>') + '</td>' +
         '<td class="when">' + esc(fmtDate(r.submittedAt)) + '</td>' +
